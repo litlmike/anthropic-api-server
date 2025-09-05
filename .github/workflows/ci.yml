@@ -10,6 +10,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  DOCKER_METADATA_SHORT_SHA_LENGTH: 7  # Set SHA length for consistency
 
 jobs:
   build:
@@ -45,11 +46,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Creates date-SHA format: 2025.09.05-fc4ac4f
+            # Creates date-SHA format: 2025.09.05-sha-fc4ac4f (using Context7 pattern)
             # This format is immutable and QNAP-friendly
-            type=raw,value={{date 'YYYY.MM.DD'}}-{{sha}}
-            # Also create a shorter 7-char SHA version for readability
-            type=raw,value={{date 'YYYY.MM.DD'}}-{{sha:7}}
+            type=sha,prefix={{date 'YYYY.MM.DD'}}-
           
           # Flavor configuration - prevents :latest tag creation
           flavor: |
