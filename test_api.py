@@ -176,7 +176,8 @@ def main():
     """Run all tests"""
     base_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
 
-    print("🧪 Testing Anthropic API Client"    print(f"📍 Base URL: {base_url}")
+    print("🧪 Testing Anthropic API Client")
+    print(f"📍 Base URL: {base_url}")
     print("-" * 50)
 
     tests = [
@@ -199,7 +200,7 @@ def main():
     print("\n" + "=" * 50)
     print("📊 Test Results:")
     print(f"   Passed: {passed}/{total}")
-    print(".1f"
+    print(f"   Success Rate: {(passed/total)*100:.1f}%")
     if passed == total:
         print("🎉 All tests passed!")
         return 0
