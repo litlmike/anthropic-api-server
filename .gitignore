@@ -49,8 +49,9 @@ logs/
 # Docker
 .dockerignore
 
-# GitHub
+# GitHub (allow workflows but ignore other GitHub files)
 .github/
+!.github/workflows/
 
 # Temporary files
 *.tmp
