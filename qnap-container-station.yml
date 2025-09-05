@@ -1,0 +1,47 @@
+# QNAP Container Station Import File
+# This can be imported directly into QNAP Container Station
+# No env files or complex setup needed!
+
+version: '3.8'
+
+services:
+  anthropic-api:
+    image: ghcr.io/litlmike/anthropic-api-server:2025.09.05-1e7f710
+    container_name: anthropic-api-server-prod
+    restart: unless-stopped
+    ports:
+      - 8090:8000
+    networks:
+      - solomon_network
+    volumes:
+      - '/share/ContainerData/anthropic-api/data:/app/data'
+      - '/share/ContainerData/anthropic-api/logs:/app/logs'
+    environment:
+      # ⚠️  REPLACE THIS WITH YOUR ACTUAL API KEY ⚠️
+      - ANTHROPIC_API_KEY=YOUR_ACTUAL_ANTHROPIC_API_KEY_HERE
+      - LOG_LEVEL=INFO
+      - TZ=America/Los_Angeles
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  solomon_network:
+    external: true
+
+# INSTRUCTIONS:
+# 1. Replace YOUR_ACTUAL_ANTHROPIC_API_KEY_HERE with your real API key
+# 2. Update the image tag above with the latest from GitHub Actions workflow output
+# 3. In QNAP Container Station, go to "Application" > "Import/Export" > "Import YAML"
+# 4. Select this file and import it
+# 5. The container will start automatically
+# 6. Access your API at http://your-qnap-ip:8090
+#
+# 🏷️ Tag Format: Uses date-SHA tags (e.g., 2025.09.05-1e7f710)
+# - Check GitHub Actions workflow output for the latest tag
+# - Copy the full tag from the "QNAP Deployment Tag" notice
+# - This prevents QNAP caching issues with immutable tags
+
