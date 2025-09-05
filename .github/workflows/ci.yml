@@ -72,18 +72,17 @@ jobs:
         pytest --version
         pytest -v
 
-    - name: Run API tests
+    - name: Run API integration tests
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       run: |
-        # Set mock API key for testing
-        export ANTHROPIC_API_KEY="test-api-key-for-ci"
-        
         # Start API server in background
         python main.py &
         SERVER_PID=$!
         sleep 10
         
-        # Run basic connectivity tests (will fail on actual API calls, but tests server startup)
-        python test_api.py http://localhost:8000 || echo "Expected API failures in CI - server startup tested"
+        # Run full integration tests with real API
+        python test_api.py http://localhost:8000
         
         # Clean up
         kill $SERVER_PID || true
