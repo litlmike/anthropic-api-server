@@ -120,8 +120,10 @@ jobs:
         docker build -t anthropic-api-server:latest .
 
     - name: Test Docker image
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       run: |
-        docker run --rm -d --name test-container -p 8000:8000 anthropic-api-server:latest
+        docker run --rm -d --name test-container -p 8000:8000 -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" anthropic-api-server:latest
         sleep 10
         curl -f http://localhost:8000/health || exit 1
         docker stop test-container
