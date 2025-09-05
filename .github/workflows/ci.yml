@@ -1,14 +1,28 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC for dependency security checks
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
 
+# Cancel redundant workflow runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Global permissions - least privilege principle
 permissions:
-  contents: read # access to check out code
-  packages: write # access to push to GitHub Container Registry
+  contents: read
+  packages: write
+  security-events: write # For security scanning results
+  id-token: write # For OIDC token generation
+  attestations: write # For build attestations
 
 jobs:
   test:
@@ -46,6 +60,7 @@ jobs:
         cache-dependency-path: |
           requirements.txt
           **/requirements*.txt
+        check-latest: true
 
     - name: Install dependencies
       run: |
@@ -66,9 +81,16 @@ jobs:
 
     - name: Run API tests
       run: |
-        python test_api.py http://localhost:8000 &
+        # Start API server in background
+        python main.py &
+        SERVER_PID=$!
         sleep 10
+        
+        # Run tests
         python test_api.py http://localhost:8000
+        
+        # Clean up
+        kill $SERVER_PID || true
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
 
   build:
@@ -109,7 +131,7 @@ jobs:
         curl -f http://localhost:8000/health || exit 1
         docker stop test-container
 
-    - name: Generate artifact attestation
+    - name: Generate basic attestation
       uses: actions/attest-build-provenance@v1
       with:
         subject-path: 'Dockerfile'
@@ -144,12 +166,31 @@ jobs:
       with:
         images: ghcr.io/${{ github.repository_owner }}/anthropic-api-server
         tags: |
+          # Branch-based tags
           type=ref,event=branch
           type=ref,event=pr
+          # Semantic versioning tags
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          # SHA-based tags for traceability
           type=sha,prefix={{branch}}-
+          # Latest tag for main branch
           type=raw,value=latest,enable={{is_default_branch}}
+          # Edge tag for development
+          type=edge,branch=main
+        labels: |
+          org.opencontainers.image.title=Anthropic API Server
+          org.opencontainers.image.description=Production-ready Anthropic API client server
+          org.opencontainers.image.vendor=${{ github.repository_owner }}
+          org.opencontainers.image.documentation=https://github.com/${{ github.repository }}
+        flavor: |
+          latest=auto
+          prefix=
+          suffix=
 
     - name: Build and push Docker image
+      id: build
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -159,6 +200,15 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
+        provenance: true
+        sbom: true
+        
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-name: ghcr.io/${{ github.repository_owner }}/anthropic-api-server
+        subject-digest: ${{ steps.build.outputs.digest }}
+        push-to-registry: true
 
   security:
     name: Security Scan
@@ -227,14 +277,32 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: semantic-release
 
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, docker, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://github.com/${{ github.repository }}/pkgs/container/anthropic-api-server
+    
+    steps:
+    - name: Deployment notification
+      run: |
+        echo "🚀 Docker image successfully built and pushed to GHCR"
+        echo "📦 Image: ghcr.io/${{ github.repository_owner }}/anthropic-api-server:latest"
+        echo "🔗 Registry: https://github.com/${{ github.repository }}/pkgs/container/anthropic-api-server"
+        echo "✅ Ready for QNAP deployment"
+
   cleanup:
     name: Cleanup
     runs-on: ubuntu-latest
-    needs: [test, build, docker, security, release]
+    needs: [test, build, docker, security, release, deploy]
     if: always()
 
     steps:
     - name: Cleanup workflow artifacts
       run: |
-        echo "Workflow completed. Cleaning up artifacts..."
+        echo "🧹 Workflow completed. Cleaning up artifacts..."
+        echo "📊 Workflow status: ${{ job.status }}"
         # Add any cleanup logic here if needed
