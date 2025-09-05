@@ -48,6 +48,8 @@ jobs:
             # Creates date-SHA format: 2025.09.05-fc4ac4f
             # This format is immutable and QNAP-friendly
             type=raw,value={{date 'YYYY.MM.DD'}}-{{sha}}
+            # Also create a shorter 7-char SHA version for readability
+            type=raw,value={{date 'YYYY.MM.DD'}}-{{sha:7}}
           
           # Flavor configuration - prevents :latest tag creation
           flavor: |
@@ -66,7 +68,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Step 6: Display deployment information
+      # Step 6: Debug and display deployment information
+      - name: Debug metadata outputs
+        run: |
+          echo "🔍 Debugging metadata outputs:"
+          echo "All tags: ${{ steps.meta.outputs.tags }}"
+          echo "All labels: ${{ steps.meta.outputs.labels }}"
+          echo "JSON output: ${{ steps.meta.outputs.json }}"
+          echo "Current date: $(date '+%Y.%m.%d')"
+          echo "GitHub SHA: ${{ github.sha }}"
+          echo "Short SHA: ${{ github.sha:0:7 }}"
+
+      # Step 7: Display deployment information
       - name: Show tag for QNAP deployment
         run: |
           echo "🚀 Image built and pushed!"
